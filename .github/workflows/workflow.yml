@@ -1,0 +1,73 @@
+name: Build and Deploy Lambda
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  AZCF_ENV_SEC_SECRET: ${{ secrets.AZCF_ENV_SEC_SECRET }}
+  AZCF_ENV_SEC_SUBID_: ${{ secrets.AZCF_ENV_SEC_SUBID_ }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: elstudio/action-install-azure-cli@v1
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 2
+
+#      - name: check that we're not going to overwrite an existing function unintenionally
+#        run: |
+#          source .envrc
+#          REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
+#          if [ "$REPO_NAME" == "$LAMBDA_NAME" ]; then
+#            echo "Repository name matches LAMBDA_NAME."
+#          else
+#            echo "Repository name does not match LAMBDA_NAME."
+#            exit 1
+#          fi
+#
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.12'
+
+      - name: Get changed files
+        id: changed-files
+        uses: step-security/changed-files@main
+
+      - name: Check for relevant file changes
+        id: check-changes
+        run: |
+          if echo "${{ steps.changed-files.outputs.all_changed_files }}" | grep -Eq "\.py|requirements.txt|Dockerfile|tests/.*\.json"; then
+            echo "has_relevant_changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_relevant_changes=false" >> $GITHUB_OUTPUT
+          fi
+
+
+      - name: Test function code, if code has changed
+        if: steps.check-changes.outputs.has_relevant_changes == 'true'
+        run: |
+          echo "changed files looks like this: $ALL_CHANGED_FILES"
+          source .envrc
+          pip install -r requirements.txt -q
+          python unittests.py -d
+
+      # - name: Build Lambda Asset, if code has changed
+      #   if: steps.check-changes.outputs.has_relevant_changes == 'true'
+      #   run: |
+      #     source .envrc
+      #     ./tooling/build-asset.sh
+
+      # - name: upsert it
+      #   run: |
+      #     source .envrc
+      #     ./tooling/upsert_function.sh
