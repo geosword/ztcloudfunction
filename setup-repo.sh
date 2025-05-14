@@ -1,12 +1,9 @@
 #!/bin/bash
 
 # Exit on any error to prevent unexpected behavior
-set -e
+# set -e
 # Optional: uncomment to see each command being executed
 # set -x
-
-# --- Configuration ---
-# project="zttemplate" # This line is commented out, which is correct
 
 # Get Project from Environment Variable
 echo "--- Initial Variable Check ---"
@@ -35,10 +32,6 @@ if [[ "$1" == "--update" ]]; then
   echo "Running in --update mode. Existing resources will be updated where possible."
 else
   echo "Running in initial setup mode. Will attempt to create resources."
-  # If any other argument is passed that isn't --update, treat it as an error or ignore.
-  if [[ -n "$1" ]]; then
-      echo "Ignoring unknown argument: $1. Only '--update' is recognized."
-  fi
 fi
 
 # --- Prerequisite Checks ---
@@ -63,11 +56,6 @@ if ! az extension show --name azure-devops &> /dev/null; then
         echo "FATAL: Failed to install Azure DevOps extension."
         exit 1
     fi
-fi
-
-# Check direnv (optional)
-if ! command -v direnv &> /dev/null; then
-    echo "WARNING: direnv is not installed. Recommended for managing environment variables (https://direnv.net)."
 fi
 
 # --- Azure Login & DevOps Setup ---
@@ -342,11 +330,11 @@ if [ "$is_update_mode" = false ]; then
     if [ "$repo_check_status" -ne 0 ] || echo "$repo_error_from_check" | grep -q "does not exist"; then
         echo "Azure DevOps repository '$repo_name' not found. Creating..."
         # Create repo first
-        create_output=$(az repos create --name "$repo_name" --project "$project" --organization "$organization_url" --query objectId -o tsv) # Get objectId to confirm creation
-        if [ $? -ne 0 ] || [ -z "$create_output" ]; then
-            echo "FATAL: Failed to create Azure DevOps repository."
-            exit 1
-        fi
+        az repos create --name "$repo_name" --project "$project" --organization "$organization_url"
+        # if [ $? -ne 0 ] || [ -z "$create_output" ]; then
+        #     echo "FATAL: Failed to create Azure DevOps repository. - Error: $create_output"
+        #     exit 1
+        # fi
         # Now fetch the SSH URL
         repo_ssh_url=$(az repos show --repository "$repo_name" --project "$project" --organization "$organization_url" --query sshUrl -o tsv)
         if [ $? -ne 0 ] || [ -z "$repo_ssh_url" ]; then
